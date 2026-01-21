@@ -1,0 +1,31 @@
+# @package _global_
+
+defaults:
+  - override /data: amass
+  - override /mask_transformer/mask: random 
+
+name: MIMO-${model.backbone.type}-${tag}
+benchmark: pose_pretrain
+
+dataset:
+  clip_len: 1
+  batch_size: 128
+
+model:
+  task: motion
+  
+  motion_ckpt: null
+  image_ckpt: null
+
+  mode_list:
+    - random
+
+  loss:
+    lambda_cano_traj: 0.
+  
+optim:
+  lr: 1e-4
+
+trainer:
+  max_steps: 40_000
+  val_check_interval: 5_000

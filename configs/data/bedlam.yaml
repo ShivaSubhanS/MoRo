@@ -1,0 +1,13 @@
+# @package _global_
+
+dataset_name: bedlam 
+
+dataset:
+  name: bedlam
+  dataset_root: datasets/mask_transformer/BEDLAM
+  clip_len: 60 
+  overlap_len: 2
+  skip: 1
+
+  normalize: false 
+  canonical: true

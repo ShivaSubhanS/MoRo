@@ -1,0 +1,8 @@
+# @package _global_
+
+model:
+  mask_scheme:
+    - - -1
+      - "full"
+  mode_list:
+    - full

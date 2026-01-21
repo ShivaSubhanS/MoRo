@@ -1,0 +1,31 @@
+# @package _global_
+
+defaults:
+  - override /data: full_hmr
+  - override /mask_transformer/mask: full 
+
+name: MIMO-${model.backbone.type}-${tag}
+benchmark: image_pretrain
+
+model:
+  task: image
+
+  motion_ckpt: null
+  image_ckpt: null
+  
+  use_transl: false
+
+  dst_former:
+    motion_drop: true
+
+  loss:
+    lambda_j2d: 1.
+
+dataset:
+  clip_len: 1
+  batch_size: 64 
+
+trainer:
+  limit_val_batches: 10
+  val_check_interval: 2_000
+  max_steps: 40_000

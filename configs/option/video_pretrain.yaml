@@ -1,0 +1,30 @@
+# @package _global_
+
+defaults:
+  - override /data: video_sf 
+  # - override /data: bedlam_sf 
+  - override /mask_transformer/mask: full 
+
+name: MIMO-${model.backbone.type}-${tag}
+benchmark: video_pretrain
+
+model:
+  task: image
+  
+  motion_ckpt: null 
+  image_ckpt: image_pretrain
+
+  dst_former:
+    motion_drop: true
+
+dataset:
+  clip_len: 1
+  overlap_len: 0
+  batch_size: 64 
+
+optim:
+  lr: 1e-5
+
+trainer:
+  val_check_interval: 4_000
+  max_steps: 40_000

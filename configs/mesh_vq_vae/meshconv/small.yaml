@@ -1,0 +1,27 @@
+# @package _global_
+
+meshconv_name: small 
+
+model:
+vqvae:
+    num_embeddings: 128
+    embedding_dim: 9
+    decay: 0.99
+    num_quantizer: 1
+
+    meshconv:
+      initial_connection_fn: ${.connection_folder}/_pool0.npy
+      connection_layer_lst:
+        [
+          "pool0",
+          "pool1",
+          "pool2",
+          "pool3",
+          "unpool3",
+          "unpool2",
+          "unpool1",
+          "unpool0",
+        ]
+      channel_lst: [32, 64, 128, 9, 128, 64, 32, 3]
+      weight_num_lst: [17, 17, 17, 17, 17, 17, 17, 17]
+      residual_rate_lst: [0, 0, 0, 0, 0, 0, 0, 0]

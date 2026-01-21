@@ -1,0 +1,270 @@
+defaults:
+  - _self_
+  - data: egobody
+  - mesh_vq_vae/meshconv: medium
+  - mask_transformer/mask: random 
+  - option: null
+
+tag: default
+name: MIMO-${model.backbone.type}-${tag}
+resume: false
+resume_ckpt: null
+resume_weights_only: false
+benchmark: null 
+subtag: null
+
+wandb: true
+mode: train
+debug: false
+
+hydra:
+  run:
+    dir: exp/mask_transformer/${name}
+  job:
+    chdir: false
+
+dataset:
+  name: amass
+  bm_path: body_models
+  model_type: smplx
+  clip_len: 60 
+
+  normalize: false
+  canonical: true
+
+  batch_size: 1 
+  num_workers: 16 
+  num_workers_val: 4 
+  spacing: 1
+
+  # for testing, specify recording, view, and body index
+  recording: null
+  view: null # must be specified during testing 
+  body_idx: null 
+
+  crop_res:
+    - 256
+    - 256
+
+  # augmentation
+  flip_prob: 0.5
+  trans_factor: 0.1
+  rot_factor: 30.
+  scale_factor: 0.3
+  rot_aug_prob: 0.6
+
+  extreme_crop_aug: true
+  extreme_crop_aug_prob: 0.1 
+  extreme_crop_lvl: 2 # 0, 1, 2
+  extreme_crop_seq_ratio: 0.2 
+
+  contact_hand: false
+  contact_vel_thres: 0.3 
+
+model:
+  task: video
+
+  num_tokens: ${.vqvae.num_tokens} 
+  num_frames: ${dataset.clip_len}
+
+  num_codes: ${.vqvae.num_embeddings}
+  dim_token: ${.vqvae.embedding_dim}
+
+  # mask scheme
+  # for training
+  mask_scheme:
+    - - -1
+      - "random"
+  scheme_prob:
+    inference: 0.4
+    random: 0.4
+    joint: 0.2
+    frame: 0.2
+    full: 0.1
+  mask_tau: 1.
+  prob_rid: 0.1 #0.
+  prob_mid: 1.0 
+  opt_token: false 
+  full_label: false
+
+  use_transl: true
+
+  # differentiable sampling 
+  gumbel: true
+  straight_through: true
+  temp_start: 1.0
+  temp_end: 0.01
+  temp_end_ratio: 1.0
+  temp_test: 0.5
+
+  # for val
+  mode_list:
+    - random
+  # for test
+  mode: full
+  mask_ratio: 0.2 
+
+  # pretrained checkpoint loading
+  motion_ckpt: null
+  motion_subtag: null
+  image_ckpt: null
+  image_subtag: null
+
+  # image conditioning
+  backbone:
+    type: vit
+    freeze: false
+    # output size of the image encoder
+    out_HW: [16, 12]
+    out_C: 1280 
+    dim_feat: ${..dst_former.dim_feat}
+
+    use_checkpoint: false
+    image_ckpt: ${..image_ckpt}
+
+  vqvae:
+    model_path: ckpt/tokenizer/tokenizer.ckpt
+
+    num_embeddings: 512 
+    embedding_dim: 9
+    decay: 0.99
+    num_quantizer: 1
+    shared_codebook: false
+
+    num_tokens: 87
+
+    meshconv:
+      batch: ${dataset.batch_size}
+      connection_folder: body_models/smplx_ConnectionMatrices
+
+  # shallow smoother for discrete tokens
+  use_smoother: false
+  smoother:
+    num_tokens: ${..num_tokens}
+    dim_in: ${..dim_token}
+    share_weights: true
+    
+    # dim_hidden: 1024 # if not share_weights
+    dim_hidden: 64 
+    kernel_size: 5
+    num_layers: 2
+
+    image_ckpt: ${..image_ckpt} 
+
+  dst_former:
+    task: ${..task}
+
+    freeze: false
+    freeze_motion: false
+    freeze_image: false
+    freeze_spatial: false
+
+    num_frames: ${..num_frames}
+    num_tokens: ${..num_tokens}
+
+    dim_in: ${..vqvae.embedding_dim}
+    dim_out: ${..vqvae.num_embeddings}
+    dim_backbone_feat: ${..backbone.out_C}
+    backbone_HW: ${..backbone.out_HW} 
+
+    dim_feat: 1024 
+
+    dim_cano_traj: 9 
+    dim_cam_traj: 9
+
+    mdepth: 4
+    idepth: 2
+    ddepth: 2
+
+    num_heads: 8
+    mlp_ratio: 4
+    qkv_bias: true
+    qk_scale: null
+    drop_rate: 0.
+    attn_drop_rate: ${.drop_rate} 
+    att_fuse: true    
+    
+    motion_ckpt: ${..motion_ckpt}
+    image_ckpt: ${..image_ckpt}
+
+    motion_drop: false
+    image_drop: 0.
+
+    learnable_pe: true
+    img_temporal: false 
+    linear_regress: true
+
+    attn_len: 60
+
+  # loss weights
+  loss:
+    lambda_ce: 1.0
+    focal_gamma: 0.
+
+    lambda_cano_traj: 10.
+
+    traj_loss_type: l2
+    lambda_rot: 1.
+    lambda_transl: 1.
+
+    loss_type: rmse
+    lambda_v3d_local: 10
+
+    lambda_j3d_pos: 1 
+    lambda_j3d_vel: 20
+    lambda_j2d: 1 
+
+    lambda_accel: 0. 
+    lambda_skating: 1. 
+    lambda_contact: 1.
+
+  # configs for test-time generation
+  test:
+    generate:
+      timesteps: 5 
+      cond_scale: 1.0
+      temperature: 1.0
+      topk: 1
+      gsample: false
+
+    visualize: false 
+    render: false
+    draw_bbox: true
+    downsample: 1
+    save_fig: true
+    save_result: true
+
+optim:
+  lr: 1e-5
+  lr_ratio: 0.1
+  weight_decay: 1e-4
+  warmup_steps: 2_000
+  scheduler:
+    name: SequentialLR
+    interval: step
+    milestones:
+      - ${optim.warmup_steps}
+    schedulers:
+      - name: LinearLR
+        args:
+          start_factor: 0.01
+          end_factor: 1.0
+          total_iters: ${optim.warmup_steps}
+      - name: CosineAnnealingLR
+        args:
+          T_max: ${eval:${trainer.max_steps} - ${optim.warmup_steps}}
+          eta_min: ${eval:${optim.lr} * ${optim.lr_ratio}}
+
+trainer:
+  max_steps: 150_000 # max_epoch=500
+  log_every_n_steps: 100
+  val_check_interval: 15_000 
+  limit_val_batches: 1.0
+  check_val_every_n_epoch: null
+  num_sanity_val_steps: 0
+  enable_progress_bar: true
+  accumulate_grad_batches: 1
+  gradient_clip_val: 1.0 
+  detect_anomaly: false
+  fast_dev_run: false
+  precision: 32

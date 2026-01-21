@@ -1,0 +1,30 @@
+# @package _global_
+
+dataset_name: amass
+
+dataset:
+  name: amass
+  dataset_root: datasets/mask_transformer/AMASS
+  clip_len: 60 
+
+  normalize: false 
+  canonical: true
+
+  # noise scheduling
+  noise:
+    train:
+      schedule: [-1, 0.3, 0.6]
+      transl: [0., 0.01, 0.03]
+      rot: [0., 1.0, 2.0] 
+    test:
+      transl: 0.03
+      rot: 2.0
+
+  # noise:
+  #   train:
+  #     schedule: [-1]
+  #     transl: [0.03]
+  #     rot: [2.0] 
+  #   test:
+  #     transl: 0.03
+  #     rot: 2.0

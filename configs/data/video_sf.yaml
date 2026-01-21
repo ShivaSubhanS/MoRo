@@ -1,0 +1,21 @@
+# @package _global_
+
+dataset_name: video_sf
+
+dataset:
+  name: mixed
+  sub_datasets: 
+    - egobody
+    - bedlam
+
+  probs: 
+    - 0.5
+    - 0.5
+    
+  clip_len: 1 
+  overlap_len: 0
+  skip: 5
+
+
+  normalize: false 
+  canonical: true

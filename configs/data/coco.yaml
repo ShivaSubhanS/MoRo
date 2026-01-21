@@ -1,0 +1,13 @@
+# @package _global_
+
+dataset_name: coco 
+
+dataset:
+  name: coco 
+
+  augment: true
+  flip: true
+  proportion: 1.0
+
+  normalize: false 
+  canonical: true

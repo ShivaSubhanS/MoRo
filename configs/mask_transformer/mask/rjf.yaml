@@ -1,0 +1,10 @@
+# @package _global_
+
+model:
+  mask_scheme:
+    - - -1
+      - "random+joint+frame"
+  mode_list:
+    - random
+    - joint
+    - frame 

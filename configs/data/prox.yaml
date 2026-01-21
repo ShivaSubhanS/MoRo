@@ -1,0 +1,19 @@
+# @package _global_
+
+dataset_name: prox 
+
+dataset:
+  name: prox
+  dataset_root: datasets/mask_transformer/PROX
+  clip_len: 60 
+  overlap_len: 2
+
+  recording: null
+  gt_bbox: false
+
+  normalize: false 
+  canonical: true
+
+model:
+  test:
+    save_result: false

@@ -1,0 +1,16 @@
+# @package _global_
+
+wandb: false
+debug: true
+
+mode: test
+
+dataset:
+  batch_size: 1
+  spacing: 20
+
+model:
+  mode: random
+  test:
+    visualize: true
+    

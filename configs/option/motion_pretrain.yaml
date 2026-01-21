@@ -1,0 +1,29 @@
+# @package _global_
+
+defaults:
+  - override /data: amass
+  - override /mask_transformer/mask: rjf
+
+name: MIMO-${model.backbone.type}-${tag}
+benchmark: motion_pretrain
+
+dataset:
+  batch_size: 4
+
+model:
+  task: motion
+  
+  motion_ckpt: pose_pretrain 
+  image_ckpt: null
+
+  use_smoother: true
+
+  dst_former:
+    use_rpe: true
+
+optim:
+  lr: 1e-4
+
+trainer:
+  max_steps: 60_000
+  val_check_interval: 5_000

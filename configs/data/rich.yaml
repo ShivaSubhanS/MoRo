@@ -1,0 +1,18 @@
+# @package _global_
+
+dataset_name: rich 
+
+dataset:
+  name: rich
+  dataset_root: datasets/mask_transformer/rich
+  clip_len: 60 
+  overlap_len: 0
+
+  crop_bbox: false
+
+  normalize: false 
+  canonical: true
+
+model:
+  test:
+    downsample: 4

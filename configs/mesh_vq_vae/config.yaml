@@ -1,0 +1,90 @@
+defaults:
+  - _self_
+  - meshconv: medium
+
+tag: default
+name: mesh-vqvae-${meshconv_name}-${tag}
+resume: false
+wandb: true
+mode: train
+
+hydra:
+  run:
+    dir: exp/mesh_vqvae/${name}
+  job:
+    chdir: false
+
+dataset:
+  train_path: 
+    - "datasets/mesh_vq_vae/bedlam_animations/train.npz"
+    - "datasets/mesh_vq_vae/AMASS_smplx/train.npz"
+    - "datasets/mesh_vq_vae/MOYO/train.npz"
+  val_path: 
+    - "datasets/mesh_vq_vae/AMASS_smplx/val.npz"
+    - "datasets/mesh_vq_vae/MOYO/val.npz"
+  test_path: 
+    - "datasets/mesh_vq_vae/AMASS_smplx/test.npz"
+    - "datasets/mesh_vq_vae/MOYO/test.npz"
+
+  bm_path: "body_models"
+  model_type: smplx
+
+  weights: balanced
+
+  structure: "**"
+  normalize: false 
+  canonical: true
+  pose_hand: false
+
+  batch_size: 256 
+  num_workers: 8 
+
+model:
+  vqvae:
+    test_mode: false
+    
+    num_embeddings: 512
+    embedding_dim: 9
+    decay: 0.99
+    num_quantizer: 1
+    shared_codebook: false
+
+    loss_commitment: ${loss.commitment}
+    loss_ortho: ${loss.ortho}
+    loss_entropy: ${loss.entropy}
+    
+    num_tokens: 87
+
+    temperature: 1.0
+
+    meshconv:
+      batch: ${dataset.batch_size}
+      connection_folder: body_models/smplx_ConnectionMatrices
+
+loss:
+  commitment: 0.25 # commitment cost
+  ortho: 0.
+  entropy: 0.
+  v2v: 1.0
+  j2j: 0. # 10.0 
+  beta: 0.0
+  pose: 0.0
+
+optim:
+  lr: 5e-4
+  weight_decay: 1e-5
+  lr_scheduler:
+    milestones: [100_000, 150_000]
+    gamma: 0.2
+
+trainer:
+  max_steps: 200_000 # 400_000
+  log_every_n_steps: 100
+  val_check_interval: 5_000
+  limit_val_batches: 1. 
+  check_val_every_n_epoch: null
+  num_sanity_val_steps: 0
+  enable_progress_bar: true
+  # gradient_clip_val: 0.1
+  detect_anomaly: false
+  fast_dev_run: false

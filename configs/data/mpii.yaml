@@ -1,0 +1,13 @@
+# @package _global_
+
+dataset_name: mpii 
+
+dataset:
+  name: mpii 
+
+  augment: true 
+  flip: true
+  proportion: 1.0
+
+  normalize: false 
+  canonical: true

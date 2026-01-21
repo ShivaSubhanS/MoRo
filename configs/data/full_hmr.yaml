@@ -1,0 +1,18 @@
+# @package _global_
+
+dataset_name: full_hmr 
+
+dataset:
+  name: mixed
+  sub_datasets: 
+    - coco 
+    - h36m
+    - mpi_inf_3dhp
+    - mpii
+
+  augment: true
+  flip: true
+  proportion: 1.0
+
+  normalize: false 
+  canonical: true

@@ -1,0 +1,32 @@
+# @package _global_
+
+wandb: false
+
+mode: test
+
+dataset:
+  test_idx: 14
+  # test
+  # recording: recording_20220318_S33_S34_01
+  # view: sub_3 
+  # body_idx: 0
+
+  # train
+  # recording: recording_20211004_S19_S06_01
+  # view: master 
+  # body_idx: 0
+
+  # for RoPE inference, clip_len can be arbitrarily long, constrained by memory
+  clip_len: 500
+  # overlap length is twice the attention window size
+  overlap_len: 120 
+  batch_size: 1
+
+model:
+  mode: inference 
+  motion_ckpt: null
+  image_ckpt: null
+
+  test:
+    # render: true
+    save_result: true

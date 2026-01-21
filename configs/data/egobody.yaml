@@ -1,0 +1,16 @@
+# @package _global_
+
+dataset_name: egobody 
+
+dataset:
+  name: egobody
+  dataset_root: datasets/mask_transformer/EgoBody
+  clip_len: 60 
+  overlap_len: 2
+
+  test_idx: -1 
+
+  gt_bbox: false
+
+  normalize: false 
+  canonical: true

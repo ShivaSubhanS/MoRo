@@ -1,0 +1,38 @@
+# @package _global_
+
+wandb: false
+
+name: MIMO-vit-update # load the checkpoint
+benchmark: video_train
+mode: test
+
+dataset:
+  name: demo
+  # for RoPE inference, clip_len can be arbitrarily long, constrained by memory
+  clip_len: 500
+  # overlap length is twice the attention window size
+  overlap_len: 120 
+  batch_size: 1
+
+model:
+  task: video
+
+  use_smoother: true
+  
+  mode: inference 
+  motion_ckpt: null
+  image_ckpt: null
+
+  test:
+    # render: true
+    save_result: true
+
+demo:
+  name: null
+  video_path: datasets/momask_hmr/EgoBody/kinect_color/recording_20220318_S33_S34_01/sub_3 # path to custom video
+  output_path: null
+  verbose: false
+  use_bbox: true
+
+  render: true
+  render_global: true
