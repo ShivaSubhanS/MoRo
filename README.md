@@ -9,7 +9,7 @@
 > 3DV 2026
 
 <p align="center">
-    <video src="assets/intro.mp4" controls autoplay></video>
+    <img src="assets/intro.gif" alt="animated" />
 </p>
 
 ## Installation
@@ -23,40 +23,46 @@ conda activate moro
 ## Data preparation
 
 ### SMPL(-X) body model
+
 We use [smplfitter](https://github.com/isarandi/smplfitter) to fit the non-parametric mesh to SMPL-X parameters. Please follow their provided [script](https://github.com/isarandi/posepile/blob/main/src/posepile/get_body_models.sh) to download these files and put them under `body_models`.
 
-Additionally, you can download the mesh connection matrices for SMPL-X topology used for the fully convolutional mesh autoencoder in Mesh-VQ-VAE and other regressors for evaluation [TODO:here](). Please also put them under `body_models` .
+Additionally, you can download the mesh connection matrices for SMPL-X topology used for the fully convolutional mesh autoencoder in Mesh-VQ-VAE and other regressors for evaluation [here](https://drive.google.com/drive/folders/1Pkw80CFhhjrOo9idE7ywemGxC-Hoe5QT?usp=sharing). Please also extract and put them under `body_models` .
 
 ### Tokenization
+
 We train the tokenizer on [AMASS](https://amass.is.tue.mpg.de/), [MOYO](https://moyo.is.tue.mpg.de/) and [BEDLAM](https://bedlam.is.tuebingen.mpg.de/). Download the SMPL-X neutral annotations from their official project pages and unzip the files.
 
 We preprocessed the datasets with the scripts at `models/mesh_vq_vae/data/preprocess`. Please change the dataset paths accordingly.
 
 ### MoRo
 
-We train MoRo on a mixture of datasets that are prepared as follows:
+MoRo is trained on a mixture of datasets prepared as follows:
 
 * **AMASS**: 
   
   We preprocess AMASS into 30 fps sequences following RoHM, please refer to the instructions [here](https://github.com/sanweiliti/RoHM?tab=readme-ov-file#amass).
+
 * **MPII, Human3.6M, MPI-INF-3DHP, COCO**: 
     
   The training dataset uses the SMPL annotations from BEDLAM. Follow the instructions [here](https://github.com/pixelite1201/BEDLAM/blob/master/docs/training.md) in the section `Training CLIFF model with real images` to obtain the required training images and annotations.
   
   We further convert the SMPL annotations to SMPL-X using the provided script at `scripts/preprocess/process_hmr_smplx.py`.
+
 * **BEDLAM**: 
 
   Download the BEDLAM dataset from their official [project page](https://bedlam.is.tue.mpg.de/index.html). We use the SMPL-X neutral annotations for training.
+
 * **EgoBody**:
   
   First, download the EgoBody dataset from the official [EgoBody dataset](https://sanweiliti.github.io/egobody/egobody.html).
   
-  Additionally, download `keypoints_cleaned`, `mask_joint` and `egobody_occ_info.csv` from [TODO:here]() and place them under the dataset directory.
+  Additionally, download `keypoints_cleaned`, `mask_joint` from [here](https://drive.google.com/file/d/1NMw_D_Y7-skEQZHeb27V7AcTb6HBOx1T/view?usp=sharing) and `egobody_occ_info.csv` from [here](https://drive.google.com/drive/folders/1Pkw80CFhhjrOo9idE7ywemGxC-Hoe5QT?usp=sharing), then place them under the dataset directory.
   
   Finally, run the provided preprocessing script at `scripts/preprocess/process_egobody_bbox.py` to generate the bounding box files.
 
-### Testing
-Additionally, we test our method on [PROX](https://prox.is.tue.mpg.de/) and [RICH](https://rich.is.tue.mpg.de/).
+### Testing data
+
+Additionally, we test our method on [PROX](https://prox.is.tue.mpg.de/) and [RICH](https://rich.is.tue.mpg.de/). Follow the dataset-specific steps below to place files in the expected locations.
 
 * **RICH**:
 
@@ -66,26 +72,33 @@ Additionally, we test our method on [PROX](https://prox.is.tue.mpg.de/) and [RIC
   
   First, download the PROX dataset from their official [project page](https://prox.is.tue.mpg.de/). 
 
-  Additionally, download `keypoints_openpose` and `mask_joint` from [TODO:here]() and place them under the dataset directory.
+  Additionally, download `keypoints_openpose` and `mask_joint` from [here](https://drive.google.com/file/d/1NY22JwWsyaGudhWnWYnVgeIYQtlZyZWQ/view?usp=sharing) and place them under the dataset directory.
 
   Finally, run the provided preprocessing script at `scripts/preprocess/process_prox_bbox.py` to generate the bounding box files.
 
-
 ### Checkpoints
 
-For the ViT backbone, we use the pretrained weights from 4DHumans (download model from the `Training` section of official [repo](https://github.com/shubham-goel/4D-Humans/tree/main)). Place it at `ckpt/backbones/vit_pose_hmr2.pth`.
+Make sure the required pretrained weights and released checkpoints are placed at the exact paths below.
 
 <!-- For custom videos, we leverage [SPEC](https://github.com/mkocabas/SPEC) to estimate the camera focal length. The checkpoint can be downloaded [here](https://drive.google.com/file/d/1t4tO0OM5s8XDvAzPW-5HaOkQuV3dHBdO/view?usp=sharing) and placed under `ckpt`.  -->
 
-The checkpoint for Mesh-VQ-VAE and MoRo can be downloaded [TODO:here](). Place the tokenizer checkpoint at `ckpt/tokenizer/tokenizer.ckpt` and MoRo checkpoint at `exp/mask_transformer/MIMO-vit-release/video_train/checkpoints/last.ckpt`.
+The checkpoint for Mesh-VQ-VAE and MoRo can be downloaded [here](https://drive.google.com/drive/folders/1Pkw80CFhhjrOo9idE7ywemGxC-Hoe5QT?usp=sharing). Place the tokenizer checkpoint at `ckpt/tokenizer/tokenizer.ckpt` and MoRo checkpoint at `exp/mask_transformer/MIMO-vit-release/video_train/checkpoints/last.ckpt`.
+
+To train from scratch, we use the pretrained weights from 4DHumans (download model from the `Training` section of official [repo](https://github.com/shubham-goel/4D-Humans/tree/main)) for the ViT backbone. Place it at `ckpt/backbones/vit_pose_hmr2.pth`.
 
 ### Structure
+
 The data should be organized as follows:
 ```
 MoRo
 ├── body_models
+|   ├── smpl
+|   ├── smplh
 │   ├── smplx
 │   ├── smplx_ConnectionMatrices
+|   ├── J_regressor_h36m.npy
+|   ├── smpl_neutral_J_regressor.pt
+|   ├── smplx2smpl_sparse.pt
 ├── ckpt
 │   ├── backbones
 │   │   ├── vit_pose_hmr2.pth
@@ -127,7 +140,10 @@ By default, the rendering result will be saved to `./exp/mask_transformer/MIMO-v
 
 ## Training
 
+Training consists of (1) training the mesh tokenizer and (2) multi-stage training for MoRo. Configuration locations are listed in each subsection.
+
 ### Tokenization
+
 You can train the mesh tokenizer by running:
 ```Bash
 python train_mesh_vqvae.py
@@ -135,6 +151,7 @@ python train_mesh_vqvae.py
 The configuration file is at `configs/mesh_vq_vae/config.yaml`.
 
 ### MoRo
+
 We adopt a multi-stage training strategy for MoRo:
 ```Bash
 # Stage 1: Pose pretraining
@@ -153,7 +170,8 @@ The configuration files are at `configs/mask_transformer/config.yaml`, the speci
 The training logs and checkpoints will be saved under `exp/mask_transformer/MIMO-vit-<tag>/<stage>`.
 
 ## Testing and Evaluation
-We test on the trained MoRo model and save the results to corresponding `exp/mask_transformer/MIMO-vit-<tag>/video_train` directory. Then we evaluate the results with the provided scripts.
+
+Inference writes results to `exp/mask_transformer/MIMO-vit-<tag>/video_train`, and then evaluation scripts read from the corresponding result directories.
 
 We set `tag=release` here to reproduce the results reported on the paper.
 
