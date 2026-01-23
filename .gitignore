@@ -1,0 +1,7 @@
+*.pyc
+.vscode
+body_models
+datasets
+wandb
+exp
+ckpt

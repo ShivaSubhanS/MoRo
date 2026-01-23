@@ -28,11 +28,12 @@ model:
     save_result: true
 
 demo:
-  name: null
+  name: null # specify name of the demo video
   video_path: datasets/momask_hmr/EgoBody/kinect_color/recording_20220318_S33_S34_01/sub_3 # path to custom video
   output_path: null
   verbose: false
   use_bbox: true
+  focal_length: null # if null, will estimate via HumanFOV
 
   render: true
   render_global: true

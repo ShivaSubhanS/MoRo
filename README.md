@@ -1,5 +1,5 @@
 # Masked Modeling for Human Motion Recovery Under Occlusions
-### [Project Page](https://mikeqzy.github.io/MoRo) | [Paper](https://arxiv.org/)
+### [Project Page](https://mikeqzy.github.io/MoRo) | [Paper](https://arxiv.org/abs/2601.16079)
 > Masked Modeling for Human Motion Recovery Under Occlusions  
 > [Zhiyin Qian](https://mikeqzy.github.io/),
 > [Siwei Zhang](https://sanweiliti.github.io/),
@@ -127,16 +127,18 @@ MoRo
 │   │   ├── rich
 ```
 
-<!-- ## Demo
+## Demo
 For a quick demo on custom video taken from static camera, run the following command on a 30 fps video:
 ```Bash
-python demo.py demo.video_path=/path/to/demo.mp4
+python demo.py option=demo demo.video_path=/path/to/demo.mp4 demo.name=<video_name> demo.focal_length=<focal_length>
 ```
 or an image directory with sorted frames:
 ```Bash
-python demo.py demo.video_path=/path/to/image_dir
+python demo.py demo.video_path=/path/to/image_dir demo.name=<video_name> demo.focal_length=<focal_length>
 ```
-By default, the rendering result will be saved to `./exp/mask_transformer/MIMO-vit-release/video_train`, under the same directory of the released model checkpoint. -->
+By default, the rendering result will be saved to `./exp/mask_transformer/MIMO-vit-release/video_train`, under the same directory of the released model checkpoint.
+
+The focal length can be optionally provided. If not provided, it will be estimated via HumanFOV from [CameraHMR](https://github.com/pixelite1201/CameraHMR/).
 
 ## Training
 
@@ -204,6 +206,7 @@ Some code in this repository is adapted from the following repositories:
 * [TokenHMR](https://github.com/saidwivedi/TokenHMR)
 * [GVHMR](https://github.com/zju3dv/GVHMR)
 * [BEDLAM](https://github.com/pixelite1201/BEDLAM)
+* [CameraHMR](https://github.com/pixelite1201/CameraHMR/)
 
 ## Citation
 
