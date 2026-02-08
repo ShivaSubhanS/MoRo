@@ -2,7 +2,7 @@
 
 wandb: false
 
-name: MIMO-vit-update # load the checkpoint
+name: MIMO-vit-release # load the checkpoint
 benchmark: video_train
 mode: test
 
@@ -29,7 +29,7 @@ model:
 
 demo:
   name: null # specify name of the demo video
-  video_path: datasets/momask_hmr/EgoBody/kinect_color/recording_20220318_S33_S34_01/sub_3 # path to custom video
+  video_path: datasets/mask_transformer/EgoBody/kinect_color/recording_20220318_S33_S34_01/sub_3 # path to custom video
   output_path: null
   verbose: false
   use_bbox: true

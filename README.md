@@ -18,6 +18,9 @@
 git clone https://github.com/mikeqzy/MoRo
 conda env create -f environment.yml
 conda activate moro
+conda install pytorch3d -c pytorch3d
+pip install --no-build-isolation chumpy==0.70
+pip install -r requirements.txt
 ```
 
 ## Data preparation
@@ -84,7 +87,8 @@ Make sure the required pretrained weights and released checkpoints are placed at
 
 The checkpoint for Mesh-VQ-VAE and MoRo can be downloaded [here](https://drive.google.com/drive/folders/1Pkw80CFhhjrOo9idE7ywemGxC-Hoe5QT?usp=sharing). Place the tokenizer checkpoint at `ckpt/tokenizer/tokenizer.ckpt` and MoRo checkpoint at `exp/mask_transformer/MIMO-vit-release/video_train/checkpoints/last.ckpt`.
 
-To train from scratch, we use the pretrained weights from 4DHumans (download model from the `Training` section of official [repo](https://github.com/shubham-goel/4D-Humans/tree/main)) for the ViT backbone. Place it at `ckpt/backbones/vit_pose_hmr2.pth`.
+To train from scratch, we use the pretrained weights from [4DHumans](https://github.com/shubham-goel/4D-Humans). You can download `vit_pose_hmr2.pth` from [here](https://drive.google.com/file/d/1zDDg6ZelF85kOHOUcZm_K8ETgCJSR6Q_/view?usp=sharing) and place it under `ckpt/backbones`.
+The original 4DHumans checkpoint is available [here](https://www.cs.utexas.edu/~pavlakos/4dhumans/hmr2_data.tar.gz). From this model, we extract the ViT backbone weights and re-save them for easier loading.
 
 ### Structure
 
@@ -138,7 +142,7 @@ python demo.py demo.video_path=/path/to/image_dir demo.name=<video_name> demo.fo
 ```
 By default, the rendering result will be saved to `./exp/mask_transformer/MIMO-vit-release/video_train`, under the same directory of the released model checkpoint.
 
-The focal length can be optionally provided. If not provided, it will be estimated via HumanFOV from [CameraHMR](https://github.com/pixelite1201/CameraHMR/).
+The focal length can be optionally provided. If not provided, it will be estimated via HumanFOV from [CameraHMR](https://github.com/pixelite1201/CameraHMR/). Please download the checkpoint following [here](https://github.com/pixelite1201/CameraHMR/blob/65d11a0640d23c60f55ec82ae54298e9e7e549e0/scripts/fetch_demo_data.sh#L18) and place it under `ckpt/cam_model_cleaned.ckpt`.
 
 ## Training
 
