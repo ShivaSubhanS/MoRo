@@ -28,11 +28,17 @@ class Backbone(torch.nn.Module):
             load_dict = {k.replace("backbone.", ""): v for k, v in model_dict.items() if k.startswith("backbone.")}
             self.load_state_dict(load_dict, strict=False)
 
-    def forward(self, batch):
+    def forward(self, batch, img_chunk_size=8):
         img = batch["crop_imgs"]
         B, F = img.shape[:2]
         img = einops.rearrange(img, "b f c h w -> (b f) c h w")
-        img_feat = self.model(img)
-        img_feat = einops.rearrange(img_feat, "(b f) c h w -> b f (h w) c", b=B, f=F)
 
+        # Process ViT in small chunks to avoid OOM
+        chunks = []
+        for i in range(0, img.shape[0], img_chunk_size):
+            chunk = img[i:i + img_chunk_size]
+            chunks.append(self.model(chunk))
+        img_feat = torch.cat(chunks, dim=0)
+
+        img_feat = einops.rearrange(img_feat, "(b f) c h w -> b f (h w) c", b=B, f=F)
         return img_feat

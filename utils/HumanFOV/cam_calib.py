@@ -34,7 +34,7 @@ def estimate_focal_length(image_paths):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     model = FLNet()
-    checkpoint = torch.load("ckpt/cam_model_cleaned.ckpt")["state_dict"]
+    checkpoint = torch.load("ckpt/cam_model_cleaned.ckpt", weights_only=False)["state_dict"]
     model.load_state_dict(checkpoint)
     model.eval()
     model = model.to(device)

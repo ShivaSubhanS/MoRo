@@ -9,9 +9,10 @@ mode: test
 dataset:
   name: demo
   # for RoPE inference, clip_len can be arbitrarily long, constrained by memory
-  clip_len: 500
+  # reduced from 500 to 32 to fit in 6GB VRAM
+  clip_len: 32
   # overlap length is twice the attention window size
-  overlap_len: 120 
+  overlap_len: 16
   batch_size: 1
 
 model:

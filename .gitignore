@@ -1,7 +1,10 @@
 *.pyc
 .vscode
-body_models
+body_models/smpl
+body_models/smplh
+body_models/smplx
 datasets
 wandb
 exp
 ckpt
+/smplx_blender_addon_lh_20241129/

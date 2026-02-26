@@ -3,7 +3,7 @@ import torch
 from typing import Dict, List, Tuple
 from collections import defaultdict
 
-def fit_smplx(vertices, evaluator, ret_error=False, **kwargs):
+def fit_smplx(vertices, evaluator, ret_error=False, ret_params=False, **kwargs):
     from pytorch3d.transforms import axis_angle_to_matrix
 
     B, F = vertices.shape[:2]
@@ -28,6 +28,13 @@ def fit_smplx(vertices, evaluator, ret_error=False, **kwargs):
     }
     bm_output = evaluator.bm_neutral(**bm_params)
     full_vertices = bm_output.full_vertices.clone().detach()
+
+    if ret_params:
+        # pose_rotvecs: (B*F, J, 3) -> (B, F, J, 3)
+        pose_rotvecs_out = pose_rotvecs.reshape(B, F, -1, 3)
+        betas_out = betas[:, 0, :]  # shared betas, take first frame: (B, num_betas)
+        trans_out = trans  # (B, F, 3)
+        return full_vertices, pose_rotvecs_out, betas_out, trans_out
 
     if ret_error:
         # check fitting error

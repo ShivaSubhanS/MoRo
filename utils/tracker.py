@@ -9,17 +9,18 @@ from utils.demo_utils import get_video_lwh
 class Tracker:
     def __init__(self) -> None:
         # https://docs.ultralytics.com/modes/predict/
-        self.yolo = YOLO("yolo11x.pt")
+        # Use yolo11n (nano) on CPU to keep GPU fully free for the main model
+        self.yolo = YOLO("yolo26s.pt")
 
     def track(self, image_paths, chunk_size=500):
         cfg = {
-            "device": "cuda",
-            "conf": 0.5,  # default 0.25, wham 0.5
+            "device": "cpu",  # run on CPU to keep GPU free for main model
+            "conf": 0.5,
             "classes": 0,  # human
             "verbose": False,
-
             "stream": True,
-            "persist": True,  # maintain tracker state across chunks, avoid OOM
+            "persist": True,
+            #"imgsz": 640,
         }
         
         track_history = []
@@ -40,6 +41,7 @@ class Tracker:
                 else:
                     result_frame = []
                 track_history.append(result_frame)
+            torch.cuda.empty_cache()
 
         del self.yolo  # free up memory
         return track_history

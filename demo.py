@@ -32,10 +32,13 @@ class MoRoDemo:
     def __init__(self, cfg: DictConfig):
         self.cfg = cfg
         self.cfg.exp_dir = os.path.join("./exp/mask_transformer", cfg.name, cfg.benchmark)
+        os.environ["DATA_ROOT"] = "."
+        # Body models are initialized lazily after inference to avoid OOM
 
-        # Initialize body models for rendering
+    def init_body_models(self):
+        """Initialize body models on GPU. Called after inference to avoid VRAM conflict."""
         body_model_path = "body_models"
-        
+
         # SMPLX body model for fitting
         self.bm_neutral = BodyModel(
             bm_path=body_model_path,
@@ -43,10 +46,10 @@ class MoRoDemo:
             gender="neutral",
             ext="npz",
         ).to(device)
-        
-        # SMPL body model for rendering
+
+        # SMPLH body model for rendering
         self.smpl_neutral = BodyModel(
-            bm_path=body_model_path, model_type="smplh", gender="neutral"
+            bm_path=body_model_path, model_type="smplh", gender="male", ext="pkl"
         ).to(device)
 
         # SMPLX to SMPL conversion
@@ -58,9 +61,6 @@ class MoRoDemo:
         self.J_regressor = torch.load(
             "body_models/smpl_neutral_J_regressor.pt", weights_only=True
         ).to(device)
-
-        
-        os.environ["DATA_ROOT"] = "."
 
         n_verts = self.bm_neutral.joint_regressor.shape[1]
         J_regressor = (
@@ -80,6 +80,7 @@ class MoRoDemo:
         joint_weights = torch.ones(1, J_regressor.shape[0], device=device)
         joint_weights[:, jid_ignore] = 0.0
         self.joint_weights = joint_weights
+        print("Body models initialized on GPU.")
 
     # Processing video
     def preprocess_video(self):
@@ -136,7 +137,9 @@ class MoRoDemo:
             self.K,
         )
 
-        # load trained model
+        torch.cuda.empty_cache()
+
+        # load trained model (map to CPU first, Trainer will move to GPU)
         ckpt_path = os.path.join(
             self.cfg.exp_dir,
             "checkpoints",
@@ -144,6 +147,8 @@ class MoRoDemo:
         )
         mask_transformer_module = MaskTransformerModule.load_from_checkpoint(
             checkpoint_path=ckpt_path,
+            map_location="cpu",
+            weights_only=False,
             strict=True,
             cfg=self.cfg,
         )
@@ -156,10 +161,11 @@ class MoRoDemo:
         trainer.predict(mask_transformer_module, datamodule=datamodule)
         self.result_dir = mask_transformer_module.result_dir
 
-        # clean up
+        # clean up transformer from GPU entirely before loading body models
         del datamodule
         del mask_transformer_module
         del trainer
+        torch.cuda.empty_cache()
 
     def load_prediction_data(self, track_idx):
         """Load prediction data from saved results."""
@@ -174,8 +180,8 @@ class MoRoDemo:
         # Load mesh vertices [B, F, V, 3]
         pred_partial_verts_cam = torch.from_numpy(saved_data["verts"]).to(device)
 
-        fit_verts_cam = fit_smplx(
-            pred_partial_verts_cam, self, ret_error=False
+        fit_verts_cam, pose_rotvecs, betas, trans = fit_smplx(
+            pred_partial_verts_cam, self, ret_params=True
         )
         pred_verts_cam = self.smplx2smpl @ fit_verts_cam
 
@@ -184,8 +190,44 @@ class MoRoDemo:
 
         self.pred_verts_cam = pred_verts_cam
         self.pred_joints_cam = pred_joints_cam
+        self.smplx_pose_rotvecs = pose_rotvecs  # (B, F, J, 3)
+        self.smplx_betas = betas                # (B, num_betas)
+        self.smplx_trans = trans                # (B, F, 3)
 
         print("Prediction data loaded")
+
+    def save_npz(self, track_idx):
+        """Save SMPL-X parameters as NPZ compatible with the SMPL-X Blender addon (SMPL-X format)."""
+        self.load_prediction_data(track_idx)
+
+        track_result_dir = os.path.join(self.result_dir, f"id{track_idx}")
+        os.makedirs(track_result_dir, exist_ok=True)
+
+        B, F, J, _ = self.smplx_pose_rotvecs.shape
+        NUM_SMPLX_JOINTS = 55  # SMPL-X has 55 joints total
+
+        for b in range(B):
+            # poses: (F, 55*3) axis-angle, all SMPL-X joints
+            poses_raw = self.smplx_pose_rotvecs[b].reshape(F, -1).cpu().numpy().astype(np.float32)
+
+            # Pad to (F, 165) if fitter returned fewer joints
+            if poses_raw.shape[1] < NUM_SMPLX_JOINTS * 3:
+                pad = np.zeros((F, NUM_SMPLX_JOINTS * 3 - poses_raw.shape[1]), dtype=np.float32)
+                poses_raw = np.concatenate([poses_raw, pad], axis=1)
+
+            betas = self.smplx_betas[b].cpu().numpy().astype(np.float32)
+            trans = self.smplx_trans[b].cpu().numpy().astype(np.float32)
+
+            npz_path = os.path.join(track_result_dir, f"smplx_seq{b:02d}.npz")
+            np.savez(
+                npz_path,
+                poses=poses_raw,              # (F, 165)
+                betas=betas,                  # (10,)
+                trans=trans,                  # (F, 3)
+                gender="male",             # required by Blender addon
+                mocap_framerate=np.float32(30.0),
+            )
+            print(f"Saved NPZ for track {track_idx} seq {b}: {npz_path}")
 
     def load_bbox_data(self):
         """Load bounding box data for visualization."""
@@ -376,10 +418,19 @@ class MoRoDemo:
     def run(self):
         self.preprocess_video()
 
+        # Step 1: inference (transformer on GPU, no body models loaded)
         self.predict_results()
-        
-        for track_idx in trange(self.num_tracks, desc="Rendering tracks"):
-            self.render_results(track_idx)
+
+        # Step 2: init body models on GPU now that transformer is freed
+        self.init_body_models()
+
+        npz_only = self.cfg.demo.get("npz_only", False)
+        for track_idx in trange(self.num_tracks, desc="Processing tracks"):
+            if npz_only:
+                self.save_npz(track_idx)
+            else:
+                self.render_results(track_idx)
+                self.save_npz(track_idx)
 
 
 @hydra.main(

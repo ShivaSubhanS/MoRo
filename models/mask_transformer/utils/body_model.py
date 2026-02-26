@@ -54,21 +54,33 @@ class BodyModel(nn.Module):
         if self.use_vtx_selector:
             cur_vertex_ids = vertex_ids[model_type]
         data_struct = None
-        if ".npz" in bm_path:
+        if ".npz" in bm_path or (".pkl" in bm_path and model_type == "smplh"):
             # smplx does not support .npz by default, so have to load in manually
-            smpl_dict = np.load(bm_path, encoding="latin1", allow_pickle=True)
-            data_struct = Struct(**smpl_dict)
+            # also load smplh .pkl manually to patch missing hand PCA attributes
+            if ".npz" in bm_path:
+                smpl_dict = np.load(bm_path, encoding="latin1", allow_pickle=True)
+                data_struct = Struct(**smpl_dict)
+            else:
+                import pickle
+                with open(bm_path, "rb") as f:
+                    smpl_dict = pickle.load(f, encoding="latin1")
+                data_struct = Struct(**smpl_dict)
             # print(smpl_dict.files)
             if model_type == "smplh":
-                data_struct.hands_componentsl = np.zeros((0))
-                data_struct.hands_componentsr = np.zeros((0))
-                data_struct.hands_meanl = np.zeros((15 * 3))
-                data_struct.hands_meanr = np.zeros((15 * 3))
+                if not hasattr(data_struct, "hands_componentsl"):
+                    data_struct.hands_componentsl = np.zeros((0))
+                if not hasattr(data_struct, "hands_componentsr"):
+                    data_struct.hands_componentsr = np.zeros((0))
+                if not hasattr(data_struct, "hands_meanl"):
+                    data_struct.hands_meanl = np.zeros((15 * 3))
+                if not hasattr(data_struct, "hands_meanr"):
+                    data_struct.hands_meanr = np.zeros((15 * 3))
                 V, D, B = data_struct.shapedirs.shape
-                data_struct.shapedirs = np.concatenate(
-                    [data_struct.shapedirs, np.zeros((V, D, SMPL.SHAPE_SPACE_DIM - B))],
-                    axis=-1,
-                )  # super hacky way to let smplh use 16-size beta
+                if B < SMPL.SHAPE_SPACE_DIM:
+                    data_struct.shapedirs = np.concatenate(
+                        [data_struct.shapedirs, np.zeros((V, D, SMPL.SHAPE_SPACE_DIM - B))],
+                        axis=-1,
+                    )  # super hacky way to let smplh use 16-size beta
         kwargs = {
             "model_type": model_type,
             "data_struct": data_struct,
