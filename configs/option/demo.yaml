@@ -35,6 +35,7 @@ demo:
   verbose: false
   use_bbox: true
   focal_length: null # if null, will estimate via HumanFOV
+  gender: null # male / female -- if null, auto-detected per track via gender classifier
 
   render: true
   render_global: true

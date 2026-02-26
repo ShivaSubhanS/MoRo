@@ -1,0 +1,7 @@
+1. run the get_body_model.sh
+2. download /home/sss/project/pose_3d/MoRo/body_models/smplx/kid_template.npy
+3.setup /home/sss/project/pose_3d/MoRo/ckpt/backbones/vit_pose_hmr2.pth, /ckpt/tokenizer/tokenizer.ckpt, ckpt/cam_model_cleaned.ckpt
+4.set datasets/mask_transformer/amass_preprocess/amass_cum_traj.pkl
+
+
+PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True python demo.py option=demo demo.video_path=videos/shoot.mp4 demo.name=shoot +demo.npz_only=true1

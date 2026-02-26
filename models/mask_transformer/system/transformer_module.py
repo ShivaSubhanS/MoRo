@@ -74,7 +74,7 @@ class MaskTransformerModule(L.LightningModule):
         )
 
     def load_vqvae(self, vqvae_path):
-        ckpt = torch.load(vqvae_path)
+        ckpt = torch.load(vqvae_path, map_location="cpu", weights_only=False)
         state_dict = ckpt["state_dict"]
         state_dict = {
             k.replace("mesh_vqvae.", "vqvae."): v for k, v in state_dict.items()

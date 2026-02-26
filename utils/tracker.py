@@ -1,49 +1,76 @@
 from ultralytics import YOLO
 
+import cv2
 import torch
+import numpy as np
 from tqdm import tqdm
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 
 from utils.demo_utils import get_video_lwh
 
+
+def _read_image(path):
+    """Read a single image as BGR numpy array."""
+    img = cv2.imread(path)
+    return img  # None if missing
+
+
+def _preload_images(image_paths, num_workers=8):
+    """Load all frames into RAM in parallel to eliminate disk I/O stall during inference."""
+    print(f"[Tracker] Pre-loading {len(image_paths)} frames into RAM ({num_workers} threads)...")
+    with ThreadPoolExecutor(max_workers=num_workers) as pool:
+        frames = list(tqdm(pool.map(_read_image, image_paths),
+                           total=len(image_paths), desc="Loading frames"))
+    ok = sum(1 for f in frames if f is not None)
+    print(f"[Tracker] Loaded {ok}/{len(image_paths)} frames.")
+    return frames  # list of H×W×3 BGR uint8 arrays (or None)
+
+
 class Tracker:
     def __init__(self) -> None:
-        # https://docs.ultralytics.com/modes/predict/
-        # Use yolo11n (nano) on CPU to keep GPU fully free for the main model
-        self.yolo = YOLO("yolo26s.pt")
+        self.yolo = YOLO("yolo11n.pt")
 
     def track(self, image_paths, chunk_size=500):
+        # Pre-load all frames into RAM so GPU never waits on disk during inference
+        frames = _preload_images(image_paths)
+
         cfg = {
-            "device": "cpu",  # run on CPU to keep GPU free for main model
+            "device": "cuda",
+            "half": True,          # FP16 — 2× faster, half the VRAM
             "conf": 0.5,
-            "classes": 0,  # human
+            "classes": 0,          # persons only
             "verbose": False,
             "stream": True,
             "persist": True,
-            #"imgsz": 640,
+            "imgsz": 640,
         }
-        
+
         track_history = []
-        total_frames = len(image_paths)
-        
-        # Process in chunks
+        total_frames = len(frames)
+
         for chunk_start in range(0, total_frames, chunk_size):
             chunk_end = min(chunk_start + chunk_size, total_frames)
-            chunk_paths = image_paths[chunk_start:chunk_end]
-            
-            results = self.yolo.track(chunk_paths, **cfg)
-            
-            for result in tqdm(results, total=len(chunk_paths), desc=f"Yolo11 Tracking [{chunk_start}:{chunk_end}]"):
+            chunk_frames = [f if f is not None else np.zeros((2, 2, 3), dtype=np.uint8)
+                            for f in frames[chunk_start:chunk_end]]
+
+            results = self.yolo.track(chunk_frames, **cfg)
+
+            for result in tqdm(results, total=len(chunk_frames),
+                               desc=f"Yolo11 Tracking [{chunk_start}:{chunk_end}]"):
                 if result.boxes.id is not None:
-                    track_ids = result.boxes.id.int().cpu().tolist()  # (N)
-                    bbx_xyxy = result.boxes.xyxy.cpu()  # (N, 4)
-                    result_frame = [{"id": track_ids[i], "bbx_xyxy": bbx_xyxy[i]} for i in range(len(track_ids))]
+                    track_ids = result.boxes.id.int().cpu().tolist()
+                    bbx_xyxy = result.boxes.xyxy.cpu()
+                    result_frame = [{"id": track_ids[i], "bbx_xyxy": bbx_xyxy[i]}
+                                    for i in range(len(track_ids))]
                 else:
                     result_frame = []
                 track_history.append(result_frame)
             torch.cuda.empty_cache()
 
-        del self.yolo  # free up memory
+        del self.yolo
+        del frames
+        torch.cuda.empty_cache()
         return track_history
 
     @staticmethod

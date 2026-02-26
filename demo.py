@@ -22,6 +22,7 @@ from models.mask_transformer.system.renderer import BatchRenderer, create_ground
 from utils.tracker import Tracker
 from utils.demo_utils import read_video, read_video_np, get_video_lwh, draw_bbx_xys_on_images, save_video, fit_ground_plane
 from utils.eval_utils import fit_smplx
+from utils.gender_utils import predict_gender
 from utils.HumanFOV import estimate_focal_length
 
 
@@ -97,6 +98,7 @@ class MoRoDemo:
             bbx_xys = tracker.get_tracks(image_paths).float()  # (N, L, 3)
             torch.save({"bbx_xys": bbx_xys}, bbx_path)
             del tracker
+            torch.cuda.empty_cache()
         else:
             bbx_xys = torch.load(bbx_path)["bbx_xys"]
 
@@ -122,6 +124,18 @@ class MoRoDemo:
         self.bbx_xys = bbx_xys
         self.num_tracks = bbx_xys.shape[0]
         self.K = K
+
+        # Detect gender per track (or use provided override)
+        forced_gender = self.cfg.demo.get("gender", None)
+        if forced_gender is not None and forced_gender in ("male", "female", "neutral"):
+            print(f"[Gender] Using provided gender: {forced_gender} for all tracks")
+            self.track_genders = [forced_gender] * self.num_tracks
+        else:
+            print("[Gender] Auto-detecting gender per track ...")
+            self.track_genders = [
+                predict_gender(image_paths, bbx_xys, track_idx=i)
+                for i in range(self.num_tracks)
+            ]
 
         if self.cfg.demo.name is None:
             self.cfg.demo.name = os.path.basename(video_dir)
@@ -203,6 +217,8 @@ class MoRoDemo:
         track_result_dir = os.path.join(self.result_dir, f"id{track_idx}")
         os.makedirs(track_result_dir, exist_ok=True)
 
+        gender = self.track_genders[track_idx] if hasattr(self, "track_genders") else "neutral"
+
         B, F, J, _ = self.smplx_pose_rotvecs.shape
         NUM_SMPLX_JOINTS = 55  # SMPL-X has 55 joints total
 
@@ -224,10 +240,10 @@ class MoRoDemo:
                 poses=poses_raw,              # (F, 165)
                 betas=betas,                  # (10,)
                 trans=trans,                  # (F, 3)
-                gender="male",             # required by Blender addon
+                gender=gender,                # detected or provided
                 mocap_framerate=np.float32(30.0),
             )
-            print(f"Saved NPZ for track {track_idx} seq {b}: {npz_path}")
+            print(f"Saved NPZ for track {track_idx} seq {b} gender={gender}: {npz_path}")
 
     def load_bbox_data(self):
         """Load bounding box data for visualization."""
