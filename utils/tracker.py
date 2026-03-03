@@ -57,7 +57,7 @@ class Tracker:
             results = self.yolo.track(chunk_frames, **cfg)
 
             for result in tqdm(results, total=len(chunk_frames),
-                               desc=f"Yolo11 Tracking [{chunk_start}:{chunk_end}]"):
+                               desc=f"[{chunk_start}:{chunk_end}]"):
                 if result.boxes.id is not None:
                     track_ids = result.boxes.id.int().cpu().tolist()
                     bbx_xyxy = result.boxes.xyxy.cpu()

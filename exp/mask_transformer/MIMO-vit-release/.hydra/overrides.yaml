@@ -1,0 +1,4 @@
+- option=demo
+- demo.video_path=/home/sss/project/pose_3d/MoRo/videos/normal.mp4
+- demo.name=normal
+- +demo.npz_only=true

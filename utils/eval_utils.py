@@ -3,45 +3,121 @@ import torch
 from typing import Dict, List, Tuple
 from collections import defaultdict
 
+
+def _estimate_fit_batch_size(n_verts: int, safety: float = 0.75) -> int:
+    """
+    Estimate how many frames can be processed at once by smplfitter's lstsq step.
+    The dominant allocation is:  frames × n_verts × n_shape_params × 4 bytes (fp32).
+    We use n_shape_params ≈ 150 as a conservative upper bound.
+    """
+    try:
+        free_bytes, _ = torch.cuda.mem_get_info()
+    except Exception:
+        return 64  # safe fallback when CUDA info unavailable
+
+    n_shape_params = 150  # upper bound for SMPL-X lstsq internal matrix
+    bytes_per_frame = n_verts * n_shape_params * 4 * 2  # ×2 for intermediates
+    usable = int(free_bytes * safety)
+    batch_size = max(1, usable // bytes_per_frame)
+    # Cap at 512 to avoid other memory pressure
+    batch_size = min(batch_size, 512)
+    print(f"[fit_smplx] free VRAM {free_bytes/1024**3:.2f} GB → batch_size={batch_size}")
+    return batch_size
+
+
 def fit_smplx(vertices, evaluator, ret_error=False, ret_params=False, **kwargs):
     from pytorch3d.transforms import axis_angle_to_matrix
 
     B, F = vertices.shape[:2]
-    vertices = vertices.reshape(B * F, -1, 3) 
+    n_verts = vertices.shape[2]
+    all_frames = vertices.reshape(B * F, -1, 3)
 
     cfg = {
         "num_iter": 1,
         "beta_regularizer": 1,
-        "share_beta": True
+        "share_beta": True,
     }
     cfg.update(kwargs)
-    fit_result = evaluator.fitter.fit(vertices, joint_weights=evaluator.joint_weights, **cfg)
-    pose_rotvecs, betas, trans = fit_result["pose_rotvecs"], fit_result["shape_betas"], fit_result["trans"]
+
+    batch_size = _estimate_fit_batch_size(n_verts)
+    total = B * F
+
+    if total <= batch_size:
+        # Original single-pass path
+        fit_result = evaluator.fitter.fit(all_frames, joint_weights=evaluator.joint_weights, **cfg)
+        pose_rotvecs = fit_result["pose_rotvecs"]
+        betas        = fit_result["shape_betas"]
+        trans        = fit_result["trans"]
+    else:
+        print(f"[fit_smplx] Long sequence ({total} frames) — processing in chunks of {batch_size}")
+        all_pose_rotvecs = []
+        all_betas        = []
+        all_trans        = []
+
+        for start in range(0, total, batch_size):
+            end = min(start + batch_size, total)
+            chunk = all_frames[start:end]
+            result = evaluator.fitter.fit(chunk, joint_weights=evaluator.joint_weights, **cfg)
+            all_pose_rotvecs.append(result["pose_rotvecs"])
+            all_betas.append(result["shape_betas"])
+            all_trans.append(result["trans"])
+            torch.cuda.empty_cache()
+
+        pose_rotvecs = torch.cat(all_pose_rotvecs, dim=0)        # (B*F, J, 3)
+        # Average betas across chunks (shared_beta gave one per chunk → mean)
+        betas_stack = torch.cat(all_betas, dim=0)                # (B*F, num_betas)
+        betas = betas_stack  # keep full shape; reshape below handles it
+        trans = torch.cat(all_trans, dim=0)                      # (B*F, 3)
+
     pose_rotmat = axis_angle_to_matrix(pose_rotvecs.reshape(-1, 3)).reshape(B, F, -1, 3, 3)
     betas = betas.reshape(B, F, -1)
-    trans = trans.reshape(B, F, 3) 
+    trans = trans.reshape(B, F, 3)
+
     bm_params = {
         "body_pose": pose_rotmat[:, :, 1:22],
         "betas": betas,
         "global_orient": pose_rotmat[:, :, 0],
         "transl": trans,
     }
-    bm_output = evaluator.bm_neutral(**bm_params)
-    full_vertices = bm_output.full_vertices.clone().detach()
+
+    # Run body model in chunks if needed to avoid OOM
+    if B * F > batch_size:
+        full_vertices_list = []
+        vertices_list = []
+        joints_list = []
+        for b in range(B):
+            bm_out = evaluator.bm_neutral(
+                body_pose=bm_params["body_pose"][:, :, ...][b:b+1],  # won't fix easily in batch
+                betas=bm_params["betas"][b:b+1],
+                global_orient=bm_params["global_orient"][b:b+1],
+                transl=bm_params["transl"][b:b+1],
+            )
+            full_vertices_list.append(bm_out.full_vertices.clone().detach())
+            if ret_error:
+                vertices_list.append(bm_out.vertices.detach())
+                joints_list.append(bm_out.joints.detach())
+            torch.cuda.empty_cache()
+        bm_output_full_vertices = torch.cat(full_vertices_list, dim=0)  # (B, F, V, 3)
+        full_vertices = bm_output_full_vertices
+    else:
+        bm_output = evaluator.bm_neutral(**bm_params)
+        full_vertices = bm_output.full_vertices.clone().detach()
+        if ret_error:
+            vertices_list = [bm_output.vertices.detach()]
+            joints_list = [bm_output.joints.detach()]
 
     if ret_params:
-        # pose_rotvecs: (B*F, J, 3) -> (B, F, J, 3)
         pose_rotvecs_out = pose_rotvecs.reshape(B, F, -1, 3)
-        betas_out = betas[:, 0, :]  # shared betas, take first frame: (B, num_betas)
-        trans_out = trans  # (B, F, 3)
+        # Betas: average across frames for each batch item
+        betas_out = betas.mean(dim=1)  # (B, num_betas)
+        trans_out = trans              # (B, F, 3)
         return full_vertices, pose_rotvecs_out, betas_out, trans_out
 
     if ret_error:
-        # check fitting error
-        recon_vertices = bm_output.vertices.detach().reshape(B * F, -1, 3) 
-        recon_joints = bm_output.joints.detach().reshape(B * F, -1, 3)
+        recon_vertices = torch.cat(vertices_list, dim=0).reshape(B * F, -1, 3)
+        recon_joints   = torch.cat(joints_list, dim=0).reshape(B * F, -1, 3)
         joints = evaluator.bm_neutral.joint_regressor @ recon_vertices
-        v2v_error = torch.norm(recon_vertices - vertices, dim=-1).mean().item() * 1e3
+        v2v_error = torch.norm(recon_vertices - all_frames, dim=-1).mean().item() * 1e3
         j2j_error = torch.norm(joints - recon_joints, dim=-1).mean().item() * 1e3
         return full_vertices, v2v_error, j2j_error
     else:
