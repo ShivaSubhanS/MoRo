@@ -10,3 +10,5 @@ ckpt/tokenizers/*
 ckpt/cam_model_cleaned.ckpt
 /smplx_blender_addon/
 /videos/
+/face_output/
+/head_output/

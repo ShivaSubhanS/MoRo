@@ -113,13 +113,13 @@ hydra:
     - hydra.mode=RUN
     task:
     - option=demo
-    - demo.video_path=/home/sss/project/pose_3d/MoRo/videos/normal.mp4
-    - demo.name=normal
+    - demo.video_path=/home/sss/project/pose_3d/MoRo/videos/smallgirl.mp4
+    - demo.name=smallgirl
     - +demo.npz_only=true
   job:
     name: demo
     chdir: false
-    override_dirname: +demo.npz_only=true,demo.name=normal,demo.video_path=/home/sss/project/pose_3d/MoRo/videos/normal.mp4,option=demo
+    override_dirname: +demo.npz_only=true,demo.name=smallgirl,demo.video_path=/home/sss/project/pose_3d/MoRo/videos/smallgirl.mp4,option=demo
     id: ???
     num: ???
     config_name: config
