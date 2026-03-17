@@ -1,6 +1,10 @@
 run get_body_models.sh
 
-PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True python demo.py option=demo demo.video_path=/home/sss/project/pose_3d/MoRo/videos/mathew.mp4 demo.name=mathew +demo.npz_only=true
+git clone https://github.com/TencentARC/GFPGAN
+
+PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True python demo.py option=demo demo.video_path=/home/sss/project/pose_3d/MoRo/videos/girldance.mp4 demo.name=girldance +demo.npz_only=true
 
 custom gender:
 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True python demo.py option=demo demo.video_path=/home/sss/project/pose_3d/MoRo/videos/basketball.mp4 demo.name=basketball +demo.npz_only=true demo.gender=male
+
+python face.py videos/ballet.png

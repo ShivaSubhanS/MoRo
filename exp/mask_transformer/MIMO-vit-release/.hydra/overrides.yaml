@@ -1,4 +1,4 @@
 - option=demo
-- demo.video_path=/home/sss/project/pose_3d/MoRo/videos/smallgirl.mp4
-- demo.name=smallgirl
+- demo.video_path=/home/sss/project/pose_3d/MoRo/videos/girldance.mp4
+- demo.name=girldance
 - +demo.npz_only=true

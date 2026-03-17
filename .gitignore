@@ -12,3 +12,4 @@ ckpt/cam_model_cleaned.ckpt
 /videos/
 /face_output/
 /head_output/
+/gfpgan/

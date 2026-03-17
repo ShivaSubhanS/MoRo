@@ -265,8 +265,8 @@ trainer:
 dataset_name: egobody
 meshconv_name: medium
 demo:
-  name: smallgirl
-  video_path: /home/sss/project/pose_3d/MoRo/videos/smallgirl.mp4
+  name: girldance
+  video_path: /home/sss/project/pose_3d/MoRo/videos/girldance.mp4
   output_path: null
   verbose: false
   use_bbox: true
