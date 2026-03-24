@@ -28,6 +28,60 @@ from utils.HumanFOV import estimate_focal_length
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+# ---------------------------------------------------------------------------
+# SMPL-X joint index → name (55 joints)
+# ---------------------------------------------------------------------------
+_SMPLX_JOINT_NAMES = [
+    "pelvis", "left_hip", "right_hip", "spine1", "left_knee", "right_knee",
+    "spine2", "left_ankle", "right_ankle", "spine3", "left_foot", "right_foot",
+    "neck", "left_collar", "right_collar", "head",
+    "left_shoulder", "right_shoulder", "left_elbow", "right_elbow",
+    "left_wrist", "right_wrist", "jaw", "left_eye_smplhf", "right_eye_smplhf",
+    "left_index1", "left_index2", "left_index3",
+    "left_middle1", "left_middle2", "left_middle3",
+    "left_pinky1",  "left_pinky2",  "left_pinky3",
+    "left_ring1",   "left_ring2",   "left_ring3",
+    "left_thumb1",  "left_thumb2",  "left_thumb3",
+    "right_index1", "right_index2", "right_index3",
+    "right_middle1","right_middle2","right_middle3",
+    "right_pinky1", "right_pinky2", "right_pinky3",
+    "right_ring1",  "right_ring2",  "right_ring3",
+    "right_thumb1", "right_thumb2", "right_thumb3",
+]
+
+# Bone rotations read from girldance.blend (armature: 'base') — quaternions [w, x, y, z].
+# Only non-identity bones are listed; all others default to identity (zero axis-angle).
+_BLENDER_BONE_QUATS = {
+    "left_shoulder":  [ 0.9476332068443298,  0.04090804606676102, -0.10235852748155594, -0.2997342646121979],
+    "left_elbow":     [ 0.9956870675086975, -0.015723001211881638,-0.012885798700153828, -0.09052090346813202],
+    "right_shoulder": [ 0.9476332068443298,  0.04090804606676102,  0.10235853493213654,  0.29973429441452026],
+    "right_elbow":    [ 0.9956870079040527, -0.015723003074526787, 0.012885799631476402,  0.09052091091871262],
+}
+
+
+def _quat_to_axis_angle(w: float, x: float, y: float, z: float) -> np.ndarray:
+    """Convert a unit quaternion [w, x, y, z] to an axis-angle vector (3,)."""
+    # clamp for numerical safety
+    w = float(np.clip(w, -1.0, 1.0))
+    angle = 2.0 * np.arccos(abs(w))
+    s = np.sin(angle / 2.0)
+    if s < 1e-8:
+        return np.zeros(3, dtype=np.float32)
+    sign = 1.0 if w >= 0.0 else -1.0
+    axis = sign * np.array([x, y, z], dtype=np.float32) / s
+    return (axis * angle).astype(np.float32)
+
+
+def _build_static_frame_pose(num_joints: int = 55) -> np.ndarray:
+    """Return a (num_joints*3,) axis-angle pose vector from the Blender A-pose."""
+    pose = np.zeros(num_joints * 3, dtype=np.float32)
+    for bone_name, (w, x, y, z) in _BLENDER_BONE_QUATS.items():
+        if bone_name in _SMPLX_JOINT_NAMES:
+            idx = _SMPLX_JOINT_NAMES.index(bone_name)
+            if idx < num_joints:
+                pose[idx * 3 : idx * 3 + 3] = _quat_to_axis_angle(w, x, y, z)
+    return pose
+
 
 class MoRoDemo:
     def __init__(self, cfg: DictConfig):
@@ -226,6 +280,9 @@ class MoRoDemo:
             # poses: (F, 55*3) axis-angle, all SMPL-X joints
             poses_raw = self.smplx_pose_rotvecs[b].reshape(F, -1).cpu().numpy().astype(np.float32)
 
+            # Zero out jaw joint (SMPL-X joint index 22) to keep the mouth closed
+            poses_raw[:, 22 * 3 : 22 * 3 + 3] = 0.0 #<==
+
             # Pad to (F, 165) if fitter returned fewer joints
             if poses_raw.shape[1] < NUM_SMPLX_JOINTS * 3:
                 pad = np.zeros((F, NUM_SMPLX_JOINTS * 3 - poses_raw.shape[1]), dtype=np.float32)
@@ -234,12 +291,18 @@ class MoRoDemo:
             betas = self.smplx_betas[b].cpu().numpy().astype(np.float32)
             trans = self.smplx_trans[b].cpu().numpy().astype(np.float32)
 
+            # --- Prepend static A-pose frame (frame 0 = Blender armature 'base') ---
+            static_pose = _build_static_frame_pose(NUM_SMPLX_JOINTS)[np.newaxis, :]  # (1, 165)
+            poses_raw = np.concatenate([static_pose, poses_raw], axis=0)             # (F+1, 165)
+            # Reuse first predicted frame's translation for the static frame
+            trans = np.concatenate([trans[0:1], trans], axis=0)                      # (F+1, 3)
+
             npz_path = os.path.join(track_result_dir, f"smplx_seq{b:02d}.npz")
             np.savez(
                 npz_path,
-                poses=poses_raw,              # (F, 165)
+                poses=poses_raw,              # (F+1, 165)
                 betas=betas,                  # (10,)
-                trans=trans,                  # (F, 3)
+                trans=trans,                  # (F+1, 3)
                 gender=gender,                # detected or provided
                 mocap_framerate=np.float32(30.0),
             )

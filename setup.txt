@@ -2,6 +2,9 @@ run get_body_models.sh
 
 git clone https://github.com/TencentARC/GFPGAN
 
+download smplx blender addon
+rename smplx_addon_init.py to __init__.py and replace in the addon
+
 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True python demo.py option=demo demo.video_path=/home/sss/project/pose_3d/MoRo/videos/girldance.mp4 demo.name=girldance +demo.npz_only=true
 
 custom gender:

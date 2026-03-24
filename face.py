@@ -11,6 +11,33 @@ from modelscope.outputs import OutputKeys
 # Absolute path to the GFPGAN repo so face.py works regardless of cwd
 GFPGAN_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'GFPGAN')
 
+# Minimum face bounding-box side (pixels) below which GFPGAN is applied.
+# Faces smaller than ~128 px lack sufficient detail for high-quality 3-D
+# reconstruction, so enhancement is worthwhile; larger faces are left as-is.
+FACE_ENHANCE_THRESHOLD = 128
+
+
+def _estimate_face_size(image_path: str) -> int:
+    """Return the min side-length of the largest detected face (px).
+
+    Falls back to ``min(image_h, image_w)`` when no face is found so that the
+    caller can still make a conservative decision.
+    """
+    img = cv2.imread(image_path, cv2.IMREAD_COLOR)
+    if img is None:
+        return 0
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+    detector = cv2.CascadeClassifier(cascade_path)
+    faces = detector.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=4, minSize=(20, 20))
+    if len(faces) == 0:
+        # No face detected – use the full image dimensions as a fallback.
+        h, w = img.shape[:2]
+        return min(h, w)
+    # Pick the largest face by area.
+    x, y, fw, fh = max(faces, key=lambda f: f[2] * f[3])
+    return min(fw, fh)
+
 
 def enhance_face_with_gfpgan(image_path: str, upscale: int = 2) -> str:
     if GFPGAN_DIR not in sys.path:
@@ -86,8 +113,13 @@ def enhance_face_with_gfpgan(image_path: str, upscale: int = 2) -> str:
 def reconstruct_face(image_path: str, output_dir: str = 'head_output'):
     os.makedirs(output_dir, exist_ok=True)
 
-    print('Enhancing face with GFPGAN...')
-    enhanced_path = enhance_face_with_gfpgan(image_path, upscale=2)
+    face_size = _estimate_face_size(image_path)
+    if face_size < FACE_ENHANCE_THRESHOLD:
+        print(f'Face size {face_size}px < threshold {FACE_ENHANCE_THRESHOLD}px – enhancing with GFPGAN...')
+        enhanced_path = enhance_face_with_gfpgan(image_path, upscale=2)
+    else:
+        print(f'Face size {face_size}px >= threshold {FACE_ENHANCE_THRESHOLD}px – skipping GFPGAN.')
+        enhanced_path = image_path
 
     print('Loading head reconstruction model...')
     recon_pipeline = pipeline(

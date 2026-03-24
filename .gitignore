@@ -9,6 +9,7 @@ ckpt/backbones/*
 ckpt/tokenizers/*
 ckpt/cam_model_cleaned.ckpt
 /smplx_blender_addon/
+smplx_blender_addon.zip
 /videos/
 /face_output/
 /head_output/
